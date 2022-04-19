@@ -1,0 +1,177 @@
+---
+title: "Case study - Data cleaning"
+author: "Carlos Rojas Cisternas"
+date: "14/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+```{r loading packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(here)
+```
+
+# Data cleaning
+## Loading data
+```{r}
+trips_2021_jan <- read.csv(here("Raw data","202101-divvy-tripdata.csv"))
+trips_2021_feb <- read.csv(here("Raw data","202102-divvy-tripdata.csv"))
+trips_2021_mar <- read.csv(here("Raw data","202103-divvy-tripdata.csv"))
+trips_2021_apr <- read.csv(here("Raw data","202104-divvy-tripdata.csv"))
+trips_2021_may <- read.csv(here("Raw data","202105-divvy-tripdata.csv"))
+trips_2021_jun <- read.csv(here("Raw data","202106-divvy-tripdata.csv"))
+trips_2021_jul <- read.csv(here("Raw data","202107-divvy-tripdata.csv"))
+trips_2021_aug <- read.csv(here("Raw data","202108-divvy-tripdata.csv"))
+trips_2021_sep <- read.csv(here("Raw data","202109-divvy-tripdata.csv"))
+trips_2021_oct <- read.csv(here("Raw data","202110-divvy-tripdata.csv"))
+trips_2021_nov <- read.csv(here("Raw data","202111-divvy-tripdata.csv"))
+trips_2021_dec <- read.csv(here("Raw data","202112-divvy-tripdata.csv"))
+```
+
+## Checking if there is duplicates rows
+```{r message=FALSE}
+datasets <- list(trips_2021_jan,trips_2021_feb,trips_2021_mar,trips_2021_apr,
+                 trips_2021_may,trips_2021_jun,trips_2021_jul,trips_2021_aug,
+                 trips_2021_sep,trips_2021_oct,trips_2021_nov,trips_2021_dec)
+
+for (k in datasets){
+  test_duplicates <- get_dupes(k)
+
+  if(is_empty(test_duplicates$dupe_count)){
+    print("There is no duplicate rows")
+    remove(test_duplicates)
+  } else {
+    View(test_duplicates)
+    break
+  }
+}
+remove(datasets)
+```
+
+## Checking if all the column names are the same
+```{r}
+compare_df_cols_same(trips_2021_jan,trips_2021_feb,trips_2021_mar,trips_2021_apr,
+                     trips_2021_may,trips_2021_jun,trips_2021_jul,trips_2021_aug,
+                     trips_2021_sep,trips_2021_oct,trips_2021_nov,trips_2021_dec)
+```
+## Combining all datasets in one
+```{r}
+trips_2021 <- rbind(trips_2021_jan,trips_2021_feb,trips_2021_mar,trips_2021_apr,
+                    trips_2021_may,trips_2021_jun,trips_2021_jul,trips_2021_aug,
+                    trips_2021_sep,trips_2021_oct,trips_2021_nov,trips_2021_dec)
+
+remove(trips_2021_jan,trips_2021_feb,trips_2021_mar,trips_2021_apr,
+       trips_2021_may,trips_2021_jun,trips_2021_jul,trips_2021_aug,
+       trips_2021_sep,trips_2021_oct,trips_2021_nov,trips_2021_dec)
+```
+
+## Cleaning column names and removing possible empty rows
+```{r}
+trips_2021 <- trips_2021 %>%
+  clean_names() %>%
+  remove_empty(which = c("rows","cols"))
+```
+
+
+## Variable formats
+```{r}
+trips_2021$started_at <- ymd_hms(trips_2021$started_at)
+trips_2021$ended_at <- ymd_hms(trips_2021$ended_at)
+```
+
+## Adding new variables
+```{r}
+# Ride lenght in time format hh:mm:ss
+trips_2021$ride_length <- hms::as_hms(trips_2021$ended_at - trips_2021$started_at)
+
+# Date without time
+trips_2021$year <- date(trips_2021$started_at)
+
+# Year
+trips_2021$year <- year(trips_2021$started_at)
+
+# Month
+trips_2021$month <- month(trips_2021$started_at,
+                          label=TRUE)
+levels(trips_2021$month) <- c("Jan","Feb","Mar","Apr","May","Jun",
+                              "Jul","Aug","Sep","Oct","Nov","Dec")
+
+# Day of month (1 to 31)
+trips_2021$month_day <- day(trips_2021$started_at)
+
+# Day of week (Monday to Sunday)
+trips_2021$week_day <- wday(trips_2021$started_at,
+                            label=TRUE,
+                            week_start=getOption("lubridate.week.start", 1))
+levels(trips_2021$week_day) <- c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")
+
+# Hour of day (0 to 23)
+trips_2021$hour <- hour(trips_2021$started_at)
+```
+
+## Summarize of ride length
+```{r}
+stats_ride_length <- trips_2021 %>%
+  select(ride_length) %>% 
+  summarise(average = hms::as_hms(round(mean(ride_length),0)),
+            median = hms::as_hms(median(ride_length)),
+            sd = hms::as_hms(round(sd(ride_length),0)),
+            min = hms::as_hms(min(ride_length)),
+            max = hms::as_hms(max(ride_length)))
+```
+
+There are some problems:
+- negative ride length (this doesn't have sense)
+- the maximum value is extremly high
+
+Then, I will remove any trips that were below 0 seconds in length. I will also remove any trips that were below 60 seconds because, according to website of Divvy, they are potentially false starts or users trying to re-dock a bike to ensure it was secure.
+
+In the other hand, I will remove any trips that were above 24 hours in length. Although it's possible to use a bike for more time with an additional charge in the tariff, accordingly to the website "If you don't return a bike within a 24-hour period, you may be charged a lost or stolen bike fee of $250 (plus tax)" [link here](https://help.divvybikes.com/hc/en-us/articles/360033484791-What-if-I-keep-a-bike-out-too-long-).
+
+```{r}
+trips_2021_cleaned <- trips_2021 %>% 
+  filter(ride_length > hms("00:01:00"),
+         ride_length <= hms("23:59:59"))
+```
+
+Try again
+
+```{r}
+stats_ride_length <- trips_2021_cleaned %>%
+  select(ride_length) %>% 
+  summarise(average = hms::as_hms(round(mean(ride_length),0)),
+            median = hms::as_hms(median(ride_length)),
+            sd = hms::as_hms(round(sd(ride_length),0)),
+            min = hms::as_hms(min(ride_length)),
+            max = hms::as_hms(max(ride_length)))
+```
+
+Then, we save our data cleaned by quarters (less space)
+
+```{r}
+write.csv(trips_2021_cleaned %>% 
+            filter(month %in% c("Jan","Feb","Mar")),
+          here("Clean data","data_2021_Q1.csv"), 
+          row.names=FALSE)
+
+write.csv(trips_2021_cleaned %>% 
+            filter(month %in% c("Apr","May","Jun")),
+          here("Clean data","data_2021_Q2.csv"), 
+          row.names=FALSE)
+
+write.csv(trips_2021_cleaned %>% 
+            filter(month %in% c("Jul","Aug","Sep")),
+          here("Clean data","data_2021_Q3.csv"), 
+          row.names=FALSE)
+
+write.csv(trips_2021_cleaned %>% 
+            filter(month %in% c("Oct","Nov","Dec")),
+          here("Clean data","data_2021_Q4.csv"), 
+          row.names=FALSE)
+```
