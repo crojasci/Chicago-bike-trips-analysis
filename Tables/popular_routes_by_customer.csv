@@ -1,0 +1,21 @@
+"member_casual","route","n_trips"
+"member","Ellis Ave & 60th St to Ellis Ave & 55th St",4082
+"member","Ellis Ave & 55th St to Ellis Ave & 60th St",3652
+"member","Ellis Ave & 60th St to University Ave & 57th St",3109
+"member","University Ave & 57th St to Ellis Ave & 60th St",3010
+"member","Calumet Ave & 33rd St to State St & 33rd St",1989
+"member","State St & 33rd St to Calumet Ave & 33rd St",1954
+"member","Loomis St & Lexington St to Morgan St & Polk St",1860
+"member","Morgan St & Polk St to Loomis St & Lexington St",1653
+"member","MLK Jr Dr & 29th St to State St & 33rd St",1422
+"member","State St & 33rd St to MLK Jr Dr & 29th St",1392
+"casual","Streeter Dr & Grand Ave to Streeter Dr & Grand Ave",10947
+"casual","Millennium Park to Millennium Park",5760
+"casual","Michigan Ave & Oak St to Michigan Ave & Oak St",5582
+"casual","Lake Shore Dr & Monroe St to Lake Shore Dr & Monroe St",4468
+"casual","Streeter Dr & Grand Ave to Millennium Park",3308
+"casual","Buckingham Fountain to Buckingham Fountain",3303
+"casual","Theater on the Lake to Theater on the Lake",2985
+"casual","DuSable Lake Shore Dr & Monroe St to DuSable Lake Shore Dr & Monroe St",2937
+"casual","Millennium Park to Streeter Dr & Grand Ave",2925
+"casual","Montrose Harbor to Montrose Harbor",2906
