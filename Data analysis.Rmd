@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Preparations
+# Setup
 ## Packages
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -35,7 +35,7 @@ trips_2021$ended_at <- ymd_hms(trips_2021$ended_at)
 trips_2021$ride_length <- hms::as_hms(trips_2021$ended_at - trips_2021$started_at)
 
 # Date without time
-trips_2021$year <- date(trips_2021$started_at)
+trips_2021$date <- date(trips_2021$started_at)
 
 # Year
 trips_2021$year <- year(trips_2021$started_at)
@@ -62,78 +62,41 @@ trips_2021$hour <- hour(trips_2021$started_at)
 
 # Data analysis
 
-## 1. Analysis of customer's Ride length
-### 1.1 Ride lengh by type of customer
-```{r}
-ride_length_customer <- trips_2021 %>% 
-  select(member_casual, ride_length) %>% 
-  group_by(member_casual) %>% 
-  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0)))
+## General overview
+```{r message=FALSE, warning=FALSE}
+trips_time_serie <- trips_2021 %>% 
+  select(date, member_casual) %>% 
+  group_by(date, member_casual) %>%
+  summarize(n_trips=n()) %>% 
+  pivot_wider(names_from=member_casual ,values_from = n_trips) %>% 
+  mutate(all=member+casual) %>% 
+  pivot_longer(!date, names_to="type_customer", values_to="n_trips")
 
-print(ride_length_customer)
-```
-
-On average, causal customers ride more time than members.
-
-### 1.2 Ride length by type of customer and day of week
-```{r message=FALSE}
-ride_length_customer_dayweek <- trips_2021 %>% 
-  select(member_casual, week_day, ride_length) %>% 
-  group_by(member_casual, week_day) %>% 
-  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>%
-  pivot_wider(names_from = member_casual, values_from = average_ride_length)
-
-write.csv(ride_length_customer_dayweek,
-          here("Tables","ride_length_by_customer_dayweek.csv"),
+write.csv(trips_time_serie,
+          here("Tables","n_trips_time_serie.csv"),
           row.names = FALSE)
 
-print(ride_length_customer_dayweek)
+ggplot(data = trips_time_serie %>%
+         filter(type_customer %in% c("casual","member")) %>% 
+         mutate(n_trips=n_trips/1000))+
+  geom_line(mapping = aes(x=date,y=n_trips, color=type_customer))+
+  scale_color_discrete(name="Customer",
+                      labels=c("Casual","Member"))+
+  labs(title="Chicago bike trips in 2021",
+       subtitle="By type of customer",
+       caption="Source: Divvy system data",
+       x="Date",
+       y="N° trips (in thousands)")+
+  theme(legend.position = "bottom")
+
+ggsave(here("Charts","Trips by date and type of customer.jpg"))
 ```
+there is weekly variations between casual and member riders.
+there is seasonal variations around the year.
 
-On average, causal customers ride more time than members in all days of week.
-Casual riders take longer bike rides on weekends.
+## 1. Analysis of the number of trips
 
-### 1.3 Ride lengh by type of customer and hour of day
-```{r message=FALSE}
-ride_length_customer_hour <- trips_2021 %>% 
-  select(member_casual, hour, ride_length) %>%
-  group_by(member_casual, hour) %>% 
-  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>% 
-  pivot_wider(names_from = member_casual, values_from = average_ride_length)
-
-write.csv(ride_length_customer_hour,
-          here("Tables","ride_length_by_customer_hour.csv"),
-          row.names = FALSE)
-
-print(ride_length_customer_hour)
-```
-
-On average, causal customers ride more time than members in all hours of day.
-Casual riders take longer bike rides between 10am and 3pm
-
-### 1.4 Ride length by type of customer and month
-```{r message=FALSE}
-ride_length_customer_month <- trips_2021 %>% 
-  select(member_casual, month, ride_length) %>%
-  group_by(member_casual, month) %>% 
-  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>% 
-  pivot_wider(names_from = member_casual, values_from = average_ride_length)
-
-write.csv(ride_length_customer_month,
-          here("Tables","ride_length_by_customer_month.csv"),
-          row.names = FALSE)
-
-print(ride_length_customer_month)
-```
-
-On average, causal customers ride more time than members in all months of year.
-Casual riders take longer bike rides between march and may. These months corresponds to begin of spring in Chicago.
-
-
-
-## 2. Analysis of the number of trips
-
-### 2.1 Number of trips by customer and day of the week
+### 1.1 Number of trips by type of customer and day of the week
 ```{r message=FALSE}
 n_customer_dayweek <- trips_2021 %>% 
   select(member_casual, week_day) %>% 
@@ -143,11 +106,7 @@ n_customer_dayweek <- trips_2021 %>%
 write.csv(n_customer_dayweek,
           here("Tables","n_trips_by_customer_dayweek.csv"),
           row.names = FALSE)
-```
 
-There are more bike trips on weekends for casual customers, but members ride more between tuesday and thursday.
-
-```{r message=FALSE}
 ggplot(data = n_customer_dayweek %>%
          mutate(n_trips = n_trips/1000))+
   geom_col(mapping = aes(x=week_day, y=n_trips, fill=member_casual),
@@ -164,7 +123,39 @@ ggplot(data = n_customer_dayweek %>%
 ggsave(here("Charts","Trips by customer and day of week.jpg"))
 ```
 
-### 2.2 Number of trips by customer and hour of day
+There are more bike trips on weekends for casual customers, but members ride more between tuesday and thursday.
+
+### 1.2 Number of trips by type of customer and month
+```{r message=FALSE}
+n_customer_month <- trips_2021 %>% 
+  select(member_casual, month) %>%
+  group_by(member_casual, month) %>% 
+  summarize(n_trips = n())
+
+write.csv(n_customer_month,
+          here("Tables","n_trips_by_customer_month.csv"),
+          row.names = FALSE)
+
+ggplot(data = n_customer_month %>%
+         mutate(n_trips = n_trips/1000))+
+  geom_col(mapping = aes(x=month, y=n_trips, fill=member_casual))+
+  scale_fill_discrete(name="Customer",
+                      labels=c("Casual","Member"))+
+  labs(title="Chicago bike trips in 2021",
+       subtitle="By month and type of customer",
+       caption="Source: Divvy system data 2021",
+       x="Month",
+       y="N° trips (in thousands)")+
+  facet_wrap(~member_casual, nrow=1, ncol=2)+
+  theme(legend.position = "bottom")
+
+ggsave(here("Charts","Trips by customer and month.jpg"))
+```
+
+Casual customers rides more between june, july and august. These months corresponds to begin of summer in Chicago. Almost the same conclusion for member, they used to ride more between july and september, the summmer months.
+
+### 1.3 Number of trips by type of customer and hour of day
+
 ```{r message=FALSE}
 n_customer_hour <- trips_2021 %>% 
   select(member_casual, hour) %>%
@@ -174,13 +165,7 @@ n_customer_hour <- trips_2021 %>%
 write.csv(n_customer_hour,
           here("Tables","n_trips_by_customer_hour.csv"),
           row.names = FALSE)
-```
 
-Both types of customers rides more in the afternoon, between 12 and 18 hrs. However, we can observe that members have two local peaks: The first is around 8 hrs and the second around 17 hrs. On the another hand, casual customers have only 1 local peak at 17 hrs. They doesn't have a peak at 8 hrs. This is probably because members use bikes to get to work in the morning.
-
-This can be observed better in the line chart below:
-
-```{r message=FALSE}
 ggplot(data = n_customer_hour %>%
          mutate(n_trips = n_trips/1000))+
   geom_line(mapping = aes(x=hour, y=n_trips, colour=member_casual),
@@ -195,8 +180,13 @@ ggplot(data = n_customer_hour %>%
 
 ggsave(here("Charts","Trips by customer and hour of day.jpg"))
 ```
-### 2.3 Number of trips by customer, hour and day
+
+Both types of customers rides more in the afternoon, between 12 and 18 hrs. However, we can observe that members have two local peaks: The first is around 8 hrs and the second around 17 hrs. On the another hand, casual customers have only 1 local peak at 17 hrs. They doesn't have a peak at 8 hrs. This is probably because members use bikes to get to work in the morning.
+
+
+### 1.4 Number of trips by customer, hour and day
 To figure out more about the last conclusion, I want to see the same chart but by day of the week.
+
 ```{r message=FALSE}
 n_customer_dayweek_hour <- trips_2021 %>% 
   select(member_casual, week_day, hour) %>%
@@ -222,9 +212,10 @@ ggplot(data = n_customer_dayweek_hour %>%
 
 ggsave(here("Charts","Trips by customer, hour and day.jpg"))
 ```
+
 On weekdays, the members have two local peaks of the number of trips, but on weekends both types of customers have the same distribution of the number of trips around the day.
 
-### 2.4 Number of trips by customer, hour and month
+### 1.5 Number of trips by customer, hour and month
 ```{r message=FALSE}
 n_customer_month_hour <- trips_2021 %>% 
   select(member_casual, month, hour) %>%
@@ -252,37 +243,72 @@ ggsave(here("Charts","Trips by customer, hour and month.jpg"))
 ```
 From this chart, we can extract an important conclusion: mainly on summer months, casual customers rides more than members approximately between 10 and 17 hrs. 
 
-### 2.5 Number of trips by customer and month
-```{r message=FALSE}
-n_customer_month <- trips_2021 %>% 
-  select(member_casual, month) %>%
-  group_by(member_casual, month) %>% 
-  summarize(n_trips = n())
+## 2. Analysis of customer's Ride length
+### 2.1 Ride lengh by type of customer
+```{r}
+ride_length_customer <- trips_2021 %>% 
+  select(member_casual, ride_length) %>% 
+  group_by(member_casual) %>% 
+  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0)))
 
-write.csv(n_customer_month,
-          here("Tables","n_trips_by_customer_month.csv"),
+print(ride_length_customer)
+```
+
+On average, causal customers ride more time than members.
+
+### 2.2 Ride length by type of customer and day of week
+```{r message=FALSE}
+ride_length_customer_dayweek <- trips_2021 %>% 
+  select(member_casual, week_day, ride_length) %>% 
+  group_by(member_casual, week_day) %>% 
+  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>%
+  pivot_wider(names_from = member_casual, values_from = average_ride_length)
+
+write.csv(ride_length_customer_dayweek,
+          here("Tables","ride_length_by_customer_dayweek.csv"),
           row.names = FALSE)
+
+print(ride_length_customer_dayweek)
 ```
 
-Casual customers rides more between june, july and august. These months corresponds to begin of summer in Chicago. Almost the same conclusion for member, they used to ride more between july and september, the summmer months.
+On average, causal customers ride more time than members in all days of week.
+Casual riders take longer bike rides on weekends.
 
+### 2.3 Ride lengh by type of customer and hour of day
 ```{r message=FALSE}
-ggplot(data = n_customer_month %>%
-         mutate(n_trips = n_trips/1000))+
-  geom_col(mapping = aes(x=month, y=n_trips, fill=member_casual))+
-  scale_fill_discrete(name="Customer",
-                      labels=c("Casual","Member"))+
-  labs(title="Chicago bike trips in 2021",
-       subtitle="By month and type of customer",
-       caption="Source: Divvy system data 2021",
-       x="Month",
-       y="N° trips (in thousands)")+
-  facet_wrap(~member_casual, nrow=1, ncol=2)+
-  theme(legend.position = "bottom")
+ride_length_customer_hour <- trips_2021 %>% 
+  select(member_casual, hour, ride_length) %>%
+  group_by(member_casual, hour) %>% 
+  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>% 
+  pivot_wider(names_from = member_casual, values_from = average_ride_length)
 
-ggsave(here("Charts","Trips by customer and month.jpg"))
+write.csv(ride_length_customer_hour,
+          here("Tables","ride_length_by_customer_hour.csv"),
+          row.names = FALSE)
+
+print(ride_length_customer_hour)
 ```
 
+On average, causal customers ride more time than members in all hours of day.
+Casual riders take longer bike rides between 10am and 3pm
+
+### 2.4 Ride length by type of customer and month
+```{r message=FALSE}
+ride_length_customer_month <- trips_2021 %>% 
+  select(member_casual, month, ride_length) %>%
+  group_by(member_casual, month) %>% 
+  summarize(average_ride_length = hms::as_hms(round(mean(ride_length),0))) %>% 
+  pivot_wider(names_from = member_casual, values_from = average_ride_length)
+
+write.csv(ride_length_customer_month,
+          here("Tables","ride_length_by_customer_month.csv"),
+          row.names = FALSE)
+
+print(ride_length_customer_month)
+```
+
+On average, causal customers ride more time than members in all months of year.
+Casual riders take longer bike rides between march and may. These months corresponds to begin of spring in Chicago.
 
 ## 3. Analysis of the most popular route trips
 ### 3.1 Most popular route trips in general
@@ -296,7 +322,7 @@ popular_routes <- trips_2021 %>%
   summarize(n_trips = n()) %>%
   arrange(desc(n_trips))
 
-head(popular_routes,3)
+popular_routes <- head(popular_routes, n=10)
 ```
 
 The most popular bike routes are round trips in:
@@ -316,13 +342,17 @@ customer_popular_routes <- trips_2021 %>%
   summarize(n_trips = n()) %>%
   arrange(desc(member_casual), desc(n_trips))
 
+customer_popular_routes <- rbind(head(filter(customer_popular_routes,
+                                             member_casual=="member"),
+                                      n=10),
+                                 head(filter(customer_popular_routes,
+                                             member_casual=="casual"),
+                                      n=10))
+
 write.csv(customer_popular_routes,
-          here("Tables","Popular_routes_by_customer.csv"),
+          here("Tables","popular_routes_by_customer.csv"),
           row.names = FALSE)
 
-head(rbind(head(filter(customer_popular_routes, member_casual=="member"),n=3),
-           head(filter(customer_popular_routes, member_casual=="casual"),n=3)),
-     n=6)
 ```
 Members most popular bike routes are:
 - from Ellis Ave & 60th St to Ellis Ave & 55th St
