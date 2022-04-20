@@ -1,0 +1,125 @@
+---
+title: "My first R dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(DT)
+library(tidyverse)
+library(lubridate)
+library(here)
+
+trips_time_serie <- read.csv(here("Tables","n_trips_time_serie.csv")) %>%
+  mutate(date = ymd(date))
+
+n_customer_dayweek <- read.csv(here("Tables","n_trips_by_customer_dayweek.csv")) %>%
+  mutate(week_day=factor(week_day,
+                         levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))
+
+n_customer_month <- read.csv(here("tables","n_trips_by_customer_month.csv")) %>%
+  mutate(month=factor(month,
+                      levels = c("Jan","Feb","Mar","Apr","May","Jun",
+                                 "Jul","Aug","Sep","Oct","Nov","Dec")))
+
+customer_popular_routes <- read.csv(here("Tables","popular_routes_by_customer.csv"))
+```
+
+# Bike trips
+
+## Column 1
+
+### Figure 1
+```{r}
+ggplot(data = trips_time_serie %>%
+         filter(type_customer %in% c("casual","member")) %>% 
+         mutate(n_trips=n_trips/1000))+
+  geom_line(mapping = aes(x=date,y=n_trips, color=type_customer))+
+  scale_color_discrete(name="Customer",
+                      labels=c("Casual","Member"))+
+  labs(title="Chicago bike trips in 2021",
+       subtitle="By type of customer",
+       caption="Source: Divvy system data",
+       x="Date",
+       y="N° trips (in thousands)")+
+  theme(legend.position = "bottom")
+```
+
+### Figure 2
+```{r}
+ggplot(data = n_customer_month %>%
+         mutate(n_trips = n_trips/1000))+
+  geom_col(mapping = aes(x=month, y=n_trips, fill=member_casual))+
+  scale_fill_discrete(name="Customer",
+                      labels=c("Casual","Member"))+
+  labs(title="Chicago bike trips in 2021",
+       subtitle="By month and type of customer",
+       caption="Source: Divvy system data 2021",
+       x="Month",
+       y="N° trips (in thousands)")+
+  facet_wrap(~member_casual, nrow=1, ncol=2)+
+  theme(legend.position = "bottom")
+```
+
+## Column 2
+### Conclusions
+From the Figure 1 we can conclude 2 important things:
+
+- There are weekly variations because sometimes the lines of both customers have opposite directions (up and the other down).
+- There are seasonal variations because both lines tend to grow towards the middle of the year and after tend to decrease.
+
+The figures 2 and 3 examine these insights.
+
+From the Figure 2 we can conclude:
+
+- Casual customers rides more on summer months (june, july and august) and until the begin of the fall (september). It is possible they take advantage of the holidays, the high temperatures and better weather to go out for a bike ride.
+- The same conclusion for members, however they keep higher number of trips until october.
+
+From the Figure 3 we can conclude
+
+- There are more bike trips on weekends for casual customers
+- In the other hand, members ride more on weekdays, between tuesday and thursday.
+- It it possible that members use bikes to get to work while casual customers for leisure and recreational activities
+
+
+
+### Figure 3
+```{r}
+ggplot(data = n_customer_dayweek %>%
+         mutate(n_trips = n_trips/1000))+
+  geom_col(mapping = aes(x=week_day, y=n_trips, fill=member_casual),
+           position="dodge")+
+  scale_fill_discrete(name="Customer",
+                      labels=c("Casual","Member"))+
+  labs(title="Chicago bike trips in 2021",
+       subtitle="By day of week and type of customer",
+       caption="Source: Divvy system data",
+       x="Day of week",
+       y="N° trips (in thousands)")+
+  ylim(0,600)
+```
+
+# Popular routes
+
+## Column 1
+### Top 10 - Members
+```{r}
+DT::datatable(customer_popular_routes %>% 
+                filter(member_casual=="member") %>% 
+                select(route, n_trips) %>%
+                rename("Route"=route, "Number of trips"=n_trips),
+  options=list(dom="t"))
+```
+
+### Top 10 - Casual riders
+```{r}
+DT::datatable(customer_popular_routes %>%
+                filter(member_casual=="casual") %>% 
+                select(route, n_trips) %>%
+                rename("Route"=route, "Number of trips"=n_trips),
+              options=list(dom="t"))
+```
